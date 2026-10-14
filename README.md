@@ -1,210 +1,108 @@
 # AEMADS: Automated Energy Monitoring & Anomaly Detection System
-> *Industrial Mobile Application for Real-Time Power Monitoring & Predictive Maintenance*
+> Industrial Android Application for Real-Time Power Monitoring & Predictive Maintenance.
 
 ---
 
-## 1. Latar Belakang & Definisi Masalah (Problem Statement)
+## 1. Overview & Problem Definition
 
-Pada lingkungan industri manufaktur modern, efisiensi energi dan kesehatan mesin operasional adalah prioritas kritis. Masalah utama yang dihadapi di lantai produksi meliputi:
+Di lini produksi manufaktur, kegagalan mesin akibat anomali kelistrikan (lonjakan beban *Spike* atau distorsi kualitas daya *Drift*) kerap terlambat dideteksi karena pemantauan tradisional masih terpusat di *Control Room*.
 
-1. **Pendekatan Reaktif, Bukan Proaktif:** Pemeliharaan tradisional umumnya menunggu mesin mengalami kegagalan mekanis total (*downtime*) sebelum teknisi bertindak, yang menyebabkan kerugian finansial masif per menitnya.
-2. **Keterlambatan Deteksi Anomali:** Gejala awal kerusakan seringkali terlihat dari pola konsumsi daya listrik—seperti lonjakan beban (*Spike*) akibat hentakan abnormal atau distorsi daya (*Drift*) karena ausnya komponen (misal bearing/hidrolik).
-3. **Visibilitas Terbatas:** Data sensor kelistrikan biasanya hanya dapat dipantau melalui workstation stasioner di Ruang Kontrol Utama (*Central Control Room*), sehingga teknisi di lapangan tidak memiliki visibilitas *real-time* saat berpatroli.
-
----
-
-## 2. Solusi AEMADS
-
-**AEMADS** menghadirkan solusi pemantauan berbasis cloud dan mobile:
-- **Mobilitas Penuh:** Mentransformasi smartphone teknisi menjadi terminal monitoring portabel berbasis **Native Android (Jetpack Compose)**.
-- **Peringatan Dini Cerdas (Global Heatmap):** Menyediakan alarm visual instan (indikator berkedip merah untuk Spike, kuning untuk Drift) saat anomali terdeteksi di lini produksi manapun (*Shop 1 - 4*).
-- **Digitalisasi Pelaporan Kerusakan:** Integrasi kamera langsung ke cloud storage (*Supabase Storage*) dengan penautan ke log anomali listrik untuk pembuatan tiket perbaikan (*Damage Report*).
-- **Ekspor Dokumen Satu Klik:** Kemudahan mengunduh riwayat telemetri dalam format Spreadsheet (CSV) maupun Dokumen Cetak (PDF).
+**AEMADS** mendesentralisasi pemantauan langsung ke tangan teknisi lapangan:
+- **Mobile Telemetry Dashboard:** Visualisasi grafik daya aktif (*Power kW*), faktor daya (*Cos Phi*), *THD*, dan skor *OEE* secara live.
+- **Global Heatmap Alarm:** Indikator visual real-time (Merah untuk *Spike*, Kuning untuk *Drift*) yang memantau 4 lini produksi (*Shop*) secara simultan.
+- **Integrated Damage Reporting:** Pemotretan fisik mesin rusak dari kamera HP, otomatis dikompresi dan diunggah ke Supabase Storage, lalu ditautkan ke log anomali.
+- **Export Data:** Unduh rekapitulasi data energi ke CSV dan PDF dengan satu klik.
 
 ---
 
-## 3. Struktur Direktori Proyek
+## 2. Arsitektur & Alur Data
 
-Proyek ini memisahkan antara **Klien Aplikasi Mobile (Android)** dan **Simulator Sensor IoT (Python)** untuk merefleksikan arsitektur sistem industri nyata:
+```mermaid
+flowchart LR
+    G["generator.py\n(IoT Edge Simulator)"] -->|"Injeksi Telemetri (1-2s)"| DB[("Supabase PostgreSQL\n(energy_logs)")]
+    DB -->|"Periodic REST Polling (2s)"| VM["DashboardViewModel\n(Kotlin StateFlow)"]
+    VM -->|"Recomposition"| UI["Jetpack Compose UI\n(Vico Chart & Heatmap)"]
+    
+    CAM["Camera API"] -->|"Compress JPEG 70%"| S[("Supabase Storage\n(Bucket: damage-photos)")]
+    S -->|"Public URL"| DB
+```
+
+### Keputusan Arsitektur: 2s Periodic REST Polling
+Sistem mengimplementasikan **Periodic REST Polling (interval 2 detik via `Kotlin Coroutines`)** sebagai pengganti WebSockets dengan pertimbangan:
+1. **Bypass Firewall Enterprise:** Menghindari pemutusan sepihak koneksi TCP persisten (*WebSocket drop*) pada jaringan industri/kampus.
+2. **Stateless Resilience:** Lebih tangguh terhadap fluktuasi sinyal saat teknisi bergerak di area *blank spot* pabrik.
+3. **Efisiensi Database:** Kueri berindeks `LIMIT 20` ($O(1)$) menjaga beban server tetap minimal dan konsumsi baterai stabil.
+
+---
+
+## 3. Struktur Proyek
 
 ```text
 Butkem_mobdev/
-├── AEMADS/                      # Source Code Aplikasi Android (Kotlin & Jetpack Compose)
-│   ├── app/                     # Modul aplikasi Android
-│   │   ├── src/main/java/       # Kode sumber Kotlin (MVVM Architecture)
-│   │   │   └── com/example/aemads/
-│   │   │       ├── MainActivity.kt        # Entry point & Deklaratif Composable UI
-│   │   │       ├── DashboardViewModel.kt  # State Management & Network Layer
-│   │   │       └── EnergyLog.kt           # Data Models & DTO
-│   │   ├── build.gradle.kts     # Konfigurasi dependensi modul app
-│   │   └── src/main/res/        # Resource Android (ikon, tema, XML config)
-│   ├── build.gradle.kts         # Root Gradle build script
-│   └── settings.gradle.kts      # Pengaturan modul Gradle
-├── generator.py                 # IoT Sensor Simulator (Python Edge Simulator)
-├── .gitignore                   # Konfigurasi ignore file Git
+├── AEMADS/                      # Modul Aplikasi Android (Kotlin, Compose, MVVM)
+│   ├── app/src/main/java/.../   # MainActivity, DashboardViewModel, Data Models
+│   └── build.gradle.kts         # Dependensi Compose, Supabase SDK, Vico Chart, Coil
+├── generator.py                 # Simulator Sensor IoT (Python) untuk injeksi data demo
+├── .gitignore                   # Aturan pengabaian file log & cache
 └── README.md                    # Dokumentasi utama proyek
 ```
 
-> **Mengapa `AEMADS/` dan `generator.py` dipisah?**  
-> - `AEMADS/` adalah proyek Android Studio yang dikompilasi menjadi berkas APK untuk perangkat seluler teknisi.
-> - `generator.py` adalah skrip simulator IoT yang dijalankan di server/laptop pengembang untuk menginjeksi data telemetri 4 Shop secara berkala ke Supabase Database, menggantikan sensor fisik PLC/SCADA saat pengujian atau demo.
+---
+
+## 4. Tech Stack
+
+| Layer | Teknologi | Peran |
+| :--- | :--- | :--- |
+| **Mobile UI** | **Jetpack Compose (Kotlin)** | UI deklaratif reaktif, tema industri, animasi Heatmap. |
+| **Architecture** | **MVVM + StateFlow** | Pemisahan tegas logika bisnis, UI state, dan background jobs. |
+| **Backend & DB** | **Supabase (PostgreSQL & Storage)** | Database relasional untuk time-series log & bucket foto kerusakan. |
+| **Data Fetching** | **Periodic REST Polling (2s)** | Penarikan data telemetri berkala yang tahan banting di jaringan industri. |
+| **Visualisasi** | **Vico Chart** | Render grafik konsumsi daya *hardware-accelerated*. |
+| **Image Loading** | **Coil Compose** | Asynchronous image loading & memory caching untuk feed laporan. |
+| **IoT Simulator** | **Python (`requests`)** | Simulator mesin 4 Shop untuk menyuntikkan data normal dan anomali. |
 
 ---
 
-## 4. Alur Data (Data Flow Architecture)
-
-```mermaid
-flowchart TD
-    subgraph IoT_Simulation [Layer IoT / Sensor Simulation]
-        G["generator.py (Python)"]
-    end
-
-    subgraph Cloud_Infrastructure [Backend-as-a-Service (Supabase)]
-        DB[("PostgreSQL Database\n(Table: energy_logs)")]
-        S[("Storage Bucket\n(damage-photos)")]
-    end
-
-    subgraph Mobile_Application [Client Mobile App (Android)]
-        VM["DashboardViewModel\n(Hybrid Polling 2s)"]
-        UI["Jetpack Compose UI\n(Dashboard, Vico Chart, Heatmap)"]
-        CAM["Android Camera API\n(TakePicturePreview)"]
-    end
-
-    %% Flow Generator
-    G -- "1. Injeksi Telemetri 4 Shop (1s / 2s)\n& Trigger Anomali (Spike/Drift)" --> DB
-    
-    %% Flow Polling
-    DB -- "2. REST API Fetch (LIMIT 20)" --> VM
-    VM -- "3. StateFlow Emission" --> UI
-    
-    %% Flow Report & Image
-    CAM -- "4. Ambil & Kompres Foto" --> VM
-    VM -- "5. Upload Foto (JPEG 70%)" --> S
-    S -- "6. Return Public URL" --> VM
-    VM -- "7. Simpan Laporan + URL" --> DB
-```
-
-### Keputusan Arsitektur: Hybrid Hard-Polling vs WebSockets
-Dalam implementasi industri lapangan, sistem menggunakan **Hybrid Hard-Polling (REST API interval 2 detik)** melalui `Kotlin Coroutines` dan `StateFlow` dengan justifikasi teknis:
-1. **Firewall & DPI (Deep Packet Inspection):** Jaringan enterprise/pabrik sering memblokir atau memutus koneksi WebSockets TCP persisten (*silent drop*).
-2. **Ketahanan Sinyal Seluler:** Teknisi bergerak di area pabrik yang memiliki *blank spot*. Permintaan REST bersifat *stateless* sehingga jauh lebih andal pulih otomatis tanpa overhead *reconnect handshake*.
-3. **Efisiensi Database:** Kueri dibatasi `LIMIT 20` terindeks, menjaga waktu komputasi PostgreSQL tetap $O(1)$ dengan latensi rendering UI tetap instan dan mulus.
-
----
-
-## 5. Mekanisme Kamera & Dual-Storage Architecture
-
-Untuk mencatat kerusakan mesin secara visual tanpa membebani basis data:
-1. **Delegasi Kamera (`ActivityResultContracts.TakePicturePreview`):** Menggunakan API kamera bawaan sistem operasi Android untuk efisiensi memori.
-2. **Kompresi Gambar di Latar Belakang:** Foto berukuran 2-5 MB dikompresi di dalam `ViewModel` (`Bitmap.CompressFormat.JPEG, 70`) menjadi berkas ringkas (~200 KB).
-3. **Dual-Storage Cloud Pattern:**
-   - Berkas biner gambar diunggah langsung ke **Supabase Storage Bucket**.
-   - Supabase mengembalikan *Public URL*.
-   - Aplikasi menyimpan *Public URL* (teks pointer) bersama catatan teknisi ke tabel relasional SQL `damage_reports`.
-
----
-
-## 6. Database Schema & UML Use Case
-
-### Skema Basis Data (Entity Relationship Diagram)
+## 5. Database Schema (ERD)
 
 ```mermaid
 erDiagram
     ENERGY_LOGS {
         uuid id PK
         timestamp created_at
-        text lini_name "Contoh: Shop 1 - Stamping & Press"
-        float power_kw "Konsumsi Daya (kW)"
-        float power_factor "Faktor Daya (Cos Phi)"
-        float thd_value "Total Harmonic Distortion"
-        float oee_score "Overall Equipment Effectiveness"
+        text lini_name "Shop 1 - 4"
+        float power_kw "Daya Aktif"
+        float power_factor "Cos Phi"
+        float thd_value "Distorsi Harmonik"
+        float oee_score "Skor Efektivitas"
     }
-    
     DAMAGE_REPORTS {
         int id PK
         timestamp created_at
         text shop_name "Area Kerusakan"
-        text related_anomaly "Korelasi: Normal / Spike / Drift"
-        text notes "Deskripsi Kerusakan"
-        text image_url "URL Public Supabase Storage"
+        text related_anomaly "Korelasi Anomali"
+        text notes "Catatan Teknisi"
+        text image_url "Pointer URL Supabase Storage"
     }
-
     AUTH_USERS {
         uuid id PK
-        text email "Email Teknisi"
-        text password_hash "Otentikasi Kredensial"
-        jsonb raw_user_meta_data "Metadata Profil & Shop Default"
+        text email "Email Akun"
+        jsonb raw_user_meta_data "Nama Teknisi & Shop Default"
     }
-```
-
-### Use Case Diagram
-
-```mermaid
-usecaseDiagram
-    actor Teknisi as "Teknisi Lapangan"
-    actor Supabase as "Supabase Cloud"
-    
-    package "AEMADS Mobile App" {
-        usecase "Login & Ganti Shop Monitoring" as UC1
-        usecase "Monitoring Grafik Daya Real-time" as UC2
-        usecase "Pantau Status Global Heatmap" as UC3
-        usecase "Ambil Foto Kerusakan Mesin" as UC4
-        usecase "Kirim Tiket Laporan Kerusakan" as UC5
-        usecase "Lihat Riwayat Kerusakan & Anomali" as UC6
-        usecase "Export Data (CSV / PDF)" as UC7
-    }
-    
-    Teknisi --> UC1
-    Teknisi --> UC2
-    Teknisi --> UC3
-    Teknisi --> UC4
-    Teknisi --> UC5
-    Teknisi --> UC6
-    Teknisi --> UC7
-    
-    UC1 <.. Supabase : Autentikasi JWT
-    UC2 <.. Supabase : Polling Telemetri
-    UC4 ..> UC5 : Lampiran Gambar
-    UC5 ..> Supabase : Upload Storage & Insert SQL
 ```
 
 ---
 
-## 7. Tech Stack
+## 6. Cara Menjalankan
 
-| Komponen | Teknologi | Alasan Pemilihan |
-| :--- | :--- | :--- |
-| **Mobile UI** | **Jetpack Compose (Kotlin)** | Paradigma deklaratif modern Android, rendering state-driven reaktif tanpa boilerplate XML. |
-| **Mobile Architecture** | **MVVM (Model-View-ViewModel)** | *Separation of concerns* yang ketat antara logika bisnis, data flow, dan komponen tampilan. |
-| **Cloud & Backend** | **Supabase (PostgreSQL & Storage)** | Arsitektur relasional tangguh untuk *time-series data*, manajemen sesi otentikasi aman, dan object storage. |
-| **Data Fetching** | **Kotlin Coroutines & StateFlow** | Eksekusi jaringan asinkron non-blocking di background thread dengan kontrol siklus hidup Android yang aman. |
-| **Data Visualization** | **Vico Chart** | Rendering grafik garis kelistrikan interaktif dengan akselerasi perangkat keras (*hardware-accelerated*). |
-| **Image Loading** | **Coil Compose** | Pustaka pemroses gambar asinkron dengan fitur *memory & disk caching* otomatis. |
-| **IoT Simulator** | **Python 3 (`requests`, `math`)** | Skrip ringan untuk mensimulasikan dinamika gelombang sinus dan injeksi anomali multi-shop. |
-
----
-
-## 8. Panduan Menjalankan Sistem (Getting Started)
-
-### Prasyarat
-- **Android Studio** Ladybug / Hedgehog atau versi terbaru dengan Android SDK 34+.
-- Perangkat fisik Android atau Android Emulator (API level 26+).
-- **Python 3.8+** terpasang di komputer/laptop.
-
-### Langkah 1: Jalankan Simulator IoT (Python)
-Buka terminal pada direktori root proyek dan jalankan:
+### 1. Jalankan IoT Simulator (Python)
 ```bash
-# Install dependency requests (jika belum ada)
 pip install requests
-
-# Jalankan simulator data sensor
 python generator.py
 ```
-> Skrip akan mulai mengirim data telemetri untuk 4 Shop (Stamping, Welding, Body, Paint) ke Supabase setiap 2 detik.
+> Simulator akan mengirim telemetri 4 Shop ke database Supabase secara otomatis.
 
-### Langkah 2: Jalankan Aplikasi Android
+### 2. Jalankan Aplikasi Android
 1. Buka folder `AEMADS` di **Android Studio**.
-2. Tunggu proses **Gradle Sync** selesai.
-3. Hubungkan perangkat Android via USB Debugging / jalankan Android Virtual Device (AVD).
-4. Klik tombol **Run ('app')** (Shift + F10).
-5. Masuk ke aplikasi dan pilih Shop yang ingin dipantau untuk melihat grafik bergerak secara langsung!
+2. Hubungkan HP Android atau nyalakan Emulator (min. API 26).
+3. Jalankan aplikasi (`Shift + F10`), login, dan pantau dashboard secara live.
