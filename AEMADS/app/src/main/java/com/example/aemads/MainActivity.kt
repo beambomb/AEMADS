@@ -346,17 +346,17 @@ fun MainScreen(context: MainActivity, viewModel: DashboardViewModel, onNavigateT
     
     val alertState by viewModel.alertState.collectAsState()
     
-    LaunchedEffect(alertState) {
-        if (alertState != AlertState.NORMAL) {
-            val channelId = if(alertState == AlertState.SPIKE) "spike_alert" else "drift_alert"
-            val title = if(alertState == AlertState.SPIKE) "CRITICAL SPIKE DETECTED" else "SYSTEM DRIFT WARNING"
-            val body = if(alertState == AlertState.SPIKE) "Power usage exceeded 150kW!" else "Power Factor < 0.85 & THD > 10% detected!"
+    LaunchedEffect(Unit) {
+        viewModel.anomalyEvent.collect { record ->
+            val channelId = if(record.type.contains("Spike")) "spike_alert" else "drift_alert"
+            val title = if(record.type.contains("Spike")) "CRITICAL SPIKE DETECTED" else "SYSTEM DRIFT WARNING"
+            val body = "${record.liniName} - ${record.triggerValue}"
             
             val builder = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setContentTitle(title)
                 .setContentText(body)
-                .setPriority(if(alertState == AlertState.SPIKE) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+                .setPriority(if(record.type.contains("Spike")) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true)
             
             try {

@@ -23,6 +23,9 @@ import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -81,6 +84,9 @@ class DashboardViewModel : ViewModel() {
 
     private val _alertState = MutableStateFlow(AlertState.NORMAL)
     val alertState = _alertState.asStateFlow()
+    
+    private val _anomalyEvent = MutableSharedFlow<AnomalyRecord>()
+    val anomalyEvent: SharedFlow<AnomalyRecord> = _anomalyEvent.asSharedFlow()
 
     private val _reportList = MutableStateFlow<List<DamageReport>>(emptyList())
     val reportList: StateFlow<List<DamageReport>> = _reportList.asStateFlow()
@@ -261,6 +267,10 @@ class DashboardViewModel : ViewModel() {
         val currentList = _anomalyHistory.value.toMutableList()
         currentList.add(0, newRecord)
         _anomalyHistory.value = currentList
+        
+        viewModelScope.launch {
+            _anomalyEvent.emit(newRecord)
+        }
         
         // TODO: In production, save this to `anomaly_history` table in Supabase.
     }
