@@ -1,9 +1,9 @@
-# ⚡ AEMADS: Automated Energy Monitoring & Anomaly Detection System
+# AEMADS: Automated Energy Monitoring & Anomaly Detection System
 > *Industrial Mobile Application for Real-Time Power Monitoring & Predictive Maintenance*
 
 ---
 
-## 📌 1. Latar Belakang & Definisi Masalah (Problem Statement)
+## 1. Latar Belakang & Definisi Masalah (Problem Statement)
 
 Pada lingkungan industri manufaktur modern, efisiensi energi dan kesehatan mesin operasional adalah prioritas kritis. Masalah utama yang dihadapi di lantai produksi meliputi:
 
@@ -13,7 +13,7 @@ Pada lingkungan industri manufaktur modern, efisiensi energi dan kesehatan mesin
 
 ---
 
-## 💡 2. Solusi AEMADS
+## 2. Solusi AEMADS
 
 **AEMADS** menghadirkan solusi pemantauan berbasis cloud dan mobile:
 - **Mobilitas Penuh:** Mentransformasi smartphone teknisi menjadi terminal monitoring portabel berbasis **Native Android (Jetpack Compose)**.
@@ -23,7 +23,7 @@ Pada lingkungan industri manufaktur modern, efisiensi energi dan kesehatan mesin
 
 ---
 
-## 🗂️ 3. Struktur Direktori Proyek
+## 3. Struktur Direktori Proyek
 
 Proyek ini memisahkan antara **Klien Aplikasi Mobile (Android)** dan **Simulator Sensor IoT (Python)** untuk merefleksikan arsitektur sistem industri nyata:
 
@@ -51,7 +51,7 @@ Butkem_mobdev/
 
 ---
 
-## 🔄 4. Alur Data (Data Flow Architecture)
+## 4. Alur Data (Data Flow Architecture)
 
 ```mermaid
 flowchart TD
@@ -84,7 +84,7 @@ flowchart TD
     VM -- "7. Simpan Laporan + URL" --> DB
 ```
 
-### ⚡ Keputusan Arsitektur: Hybrid Hard-Polling vs WebSockets
+### Keputusan Arsitektur: Hybrid Hard-Polling vs WebSockets
 Dalam implementasi industri lapangan, sistem menggunakan **Hybrid Hard-Polling (REST API interval 2 detik)** melalui `Kotlin Coroutines` dan `StateFlow` dengan justifikasi teknis:
 1. **Firewall & DPI (Deep Packet Inspection):** Jaringan enterprise/pabrik sering memblokir atau memutus koneksi WebSockets TCP persisten (*silent drop*).
 2. **Ketahanan Sinyal Seluler:** Teknisi bergerak di area pabrik yang memiliki *blank spot*. Permintaan REST bersifat *stateless* sehingga jauh lebih andal pulih otomatis tanpa overhead *reconnect handshake*.
@@ -92,7 +92,7 @@ Dalam implementasi industri lapangan, sistem menggunakan **Hybrid Hard-Polling (
 
 ---
 
-## 📷 5. Mekanisme Kamera & Dual-Storage Architecture
+## 5. Mekanisme Kamera & Dual-Storage Architecture
 
 Untuk mencatat kerusakan mesin secara visual tanpa membebani basis data:
 1. **Delegasi Kamera (`ActivityResultContracts.TakePicturePreview`):** Menggunakan API kamera bawaan sistem operasi Android untuk efisiensi memori.
@@ -104,7 +104,7 @@ Untuk mencatat kerusakan mesin secara visual tanpa membebani basis data:
 
 ---
 
-## 📊 6. Database Schema & UML Use Case
+## 6. Database Schema & UML Use Case
 
 ### Skema Basis Data (Entity Relationship Diagram)
 
@@ -170,7 +170,7 @@ usecaseDiagram
 
 ---
 
-## 🛠️ 7. Tech Stack
+## 7. Tech Stack
 
 | Komponen | Teknologi | Alasan Pemilihan |
 | :--- | :--- | :--- |
@@ -184,7 +184,7 @@ usecaseDiagram
 
 ---
 
-## 🚀 8. Panduan Menjalankan Sistem (Getting Started)
+## 8. Panduan Menjalankan Sistem (Getting Started)
 
 ### Prasyarat
 - **Android Studio** Ladybug / Hedgehog atau versi terbaru dengan Android SDK 34+.
