@@ -1,0 +1,20 @@
+# Logs
+*.log
+hs_err_pid*
+replay_pid*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+env/
+venv/
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*~
